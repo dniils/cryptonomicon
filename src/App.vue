@@ -1,6 +1,6 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
-    <!-- <div
+    <div
       v-if="loading"
       class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center"
     >
@@ -24,7 +24,7 @@
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         ></path>
       </svg>
-    </div> -->
+    </div>
     <div class="container">
       <section>
         <div class="flex">
@@ -46,7 +46,7 @@
               />
             </div>
             <div
-              v-if="allTickers.length"
+              v-if="complete"
               class="flex bg-white shadow-md p-1 rounded-md flex-wrap"
             >
               <span
@@ -60,21 +60,6 @@
               >
                 {{ tick }}
               </span>
-              <!-- <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                DOGE
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                BCH
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                CHD
-              </span> -->
             </div>
             <div v-if="exists" class="text-sm text-red-600">
               Такой тикер уже добавлен
@@ -207,38 +192,31 @@ export default {
       complete: false,
       allTickers: [],
       autocomplete: null,
-      loading: false,
+      loading: true,
     };
   },
 
-  // created() {
-  //   alert("");
-  // },
+  async created() {
+    const f = await fetch(
+      `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
+    );
+    this.autocomplete = await f.json();
+    this.loading = false;
+  },
 
   methods: {
-    async getAllTickers() {
-      if (!this.autocomplete) {
-        this.loading = true;
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
-        );
-        this.autocomplete = await f.json();
-        this.loading = false;
-      }
-
+    searchTickers() {
       this.allTickers = Object.keys(this.autocomplete.Data)
         .filter((el) => el.includes(this.ticker.toUpperCase()))
         .sort((a, b) => a.length - b.length)
         .slice(0, 4);
-    },
-
-    searchTickers() {
-      if (this.loading) return;
-      if (!this.ticker) this.allTickers = [];
-      else this.getAllTickers();
 
       this.complete = true;
       this.exists = false;
+
+      if (this.ticker.length === 0 || this.allTickers.length === 0) {
+        this.complete = false;
+      }
     },
 
     validate() {
@@ -248,8 +226,6 @@ export default {
     },
 
     add() {
-      // this.exists = !!this.tickers.find((t) => t.name === this.ticker);
-      // if (this.exists) return;
       if (this.validate()) return;
 
       const currentTicker = {
@@ -261,16 +237,12 @@ export default {
 
       console.log(this.tickers);
 
-      // console.log(this.tickers);
-      // console.log("имя тикера из массива tickers", this.tickers[0].name);
-
       setInterval(async () => {
         const f = await fetch(
           `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=d8955afda016448b554ff96c0e2ad2ea4686e53fa7589a1fabac5f2fe4efc92b`
         );
         const data = await f.json();
 
-        // не заработало:
         // currentTicker.price = data.USD;
         this.tickers.find((t) => t.name === currentTicker.name).price =
           data?.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
