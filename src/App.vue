@@ -1,6 +1,7 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
     <!-- <div
+      v-if="loading"
       class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center"
     >
       <svg
@@ -34,7 +35,9 @@
             <div class="mt-1 relative rounded-md shadow-md">
               <input
                 v-model="ticker"
-                v-on:keydown.enter="add"
+                @keydown.enter="add"
+                @change="validate"
+                @input="searchTickers"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -42,15 +45,22 @@
                 placeholder="Например DOGE"
               />
             </div>
-            <!-- <div
-              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
+            <div
+              v-if="allTickers.length"
+              class="flex bg-white shadow-md p-1 rounded-md flex-wrap"
             >
               <span
+                v-for="tick in allTickers"
+                :key="tick"
+                @click="
+                  ticker = tick;
+                  add();
+                "
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
-                BTC
+                {{ tick }}
               </span>
-              <span
+              <!-- <span
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
                 DOGE
@@ -64,9 +74,11 @@
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
                 CHD
-              </span>
+              </span> -->
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div> -->
+            <div v-if="exists" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -105,7 +117,7 @@
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
-                {{ t.name }} - USD
+                {{ t.name.toUpperCase() }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
                 {{ t.price }}
@@ -178,6 +190,7 @@
       </section>
     </div>
   </div>
+  <!-- Current ticker is: <strong style="color: red"> {{ ticker }}</strong> -->
 </template>
 
 <script>
@@ -186,21 +199,71 @@ export default {
 
   data() {
     return {
-      ticker: "BTC",
+      ticker: "",
       tickers: [],
       sel: null,
       graph: [],
+      exists: false,
+      complete: false,
+      allTickers: [],
+      autocomplete: null,
+      loading: false,
     };
   },
 
+  // created() {
+  //   alert("");
+  // },
+
   methods: {
+    async getAllTickers() {
+      if (!this.autocomplete) {
+        this.loading = true;
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
+        );
+        this.autocomplete = await f.json();
+        this.loading = false;
+      }
+
+      this.allTickers = Object.keys(this.autocomplete.Data)
+        .filter((el) => el.includes(this.ticker.toUpperCase()))
+        .sort((a, b) => a.length - b.length)
+        .slice(0, 4);
+    },
+
+    searchTickers() {
+      if (this.loading) return;
+      if (!this.ticker) this.allTickers = [];
+      else this.getAllTickers();
+
+      this.complete = true;
+      this.exists = false;
+    },
+
+    validate() {
+      return (this.exists = !!this.tickers.find(
+        (t) => t.name.toLowerCase() === this.ticker.toLowerCase()
+      ));
+    },
+
     add() {
+      // this.exists = !!this.tickers.find((t) => t.name === this.ticker);
+      // if (this.exists) return;
+      if (this.validate()) return;
+
       const currentTicker = {
         name: this.ticker,
         price: "-",
       };
 
       this.tickers.push(currentTicker);
+
+      console.log(this.tickers);
+
+      // console.log(this.tickers);
+      // console.log("имя тикера из массива tickers", this.tickers[0].name);
+
       setInterval(async () => {
         const f = await fetch(
           `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=d8955afda016448b554ff96c0e2ad2ea4686e53fa7589a1fabac5f2fe4efc92b`
@@ -218,6 +281,8 @@ export default {
       }, 3000);
 
       this.ticker = "";
+
+      this.complete = false;
     },
 
     select(ticker) {
