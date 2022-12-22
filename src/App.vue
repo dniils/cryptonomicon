@@ -202,6 +202,14 @@ export default {
     );
     this.autocomplete = await f.json();
     this.loading = false;
+
+    const tickersData = localStorage.getItem("cryptonomicon-list");
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => {
+        this.subscribeToUpdates(ticker.name);
+      });
+    }
   },
 
   methods: {
@@ -225,6 +233,23 @@ export default {
       ));
     },
 
+    subscribeToUpdates(tickerName) {
+      setInterval(async () => {
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=d8955afda016448b554ff96c0e2ad2ea4686e53fa7589a1fabac5f2fe4efc92b`
+        );
+        const data = await f.json();
+
+        // currentTicker.price = data.USD;
+        this.tickers.find((t) => t.name === tickerName).price =
+          data?.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+
+        if (this.sel?.name === tickerName) {
+          this.graph.push(data.USD);
+        }
+      }, 3000);
+    },
+
     add() {
       if (this.validate()) return;
 
@@ -235,26 +260,13 @@ export default {
 
       this.tickers.push(currentTicker);
 
-      console.log(this.tickers);
-
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=d8955afda016448b554ff96c0e2ad2ea4686e53fa7589a1fabac5f2fe4efc92b`
-        );
-        const data = await f.json();
-
-        // currentTicker.price = data.USD;
-        this.tickers.find((t) => t.name === currentTicker.name).price =
-          data?.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if (this.sel?.name === currentTicker.name) {
-          this.graph.push(data.USD);
-        }
-      }, 3000);
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
 
       this.ticker = "";
 
       this.complete = false;
+
+      this.subscribeToUpdates(currentTicker.name);
     },
 
     select(ticker) {
